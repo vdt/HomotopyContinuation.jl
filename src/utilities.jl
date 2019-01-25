@@ -249,8 +249,10 @@ struct ComplexSegment
     Δ_target_start::ComplexF64
     abs_target_start::Float64
 end
-function ComplexSegment(start, target)
-    Δ_target_start = convert(ComplexF64, target) - convert(ComplexF64, start)
+
+ComplexSegment(start, target) = ComplexSegment(convert(ComplexF64, start), convert(ComplexF64, target))
+function ComplexSegment(start::Complex, target::Complex)
+    Δ_target_start = target - start
     abs_target_start = abs(Δ_target_start)
 
     ComplexSegment(start, target, Δ_target_start, abs_target_start)

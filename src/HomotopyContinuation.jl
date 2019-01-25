@@ -15,7 +15,8 @@ module HomotopyContinuation
         Problems,
         Solving,
         Systems,
-        Utilities
+        Utilities,
+        PathSolving
 
     include("utilities.jl")
     include("parallel.jl")
@@ -37,6 +38,7 @@ module HomotopyContinuation
     include("solve.jl")
     include("monodromy.jl")
 
+    include("path_solving.jl")
     include("interface_test.jl")
 
     import .Solving: AffineResult, ProjectiveResult, PathResult, solution,

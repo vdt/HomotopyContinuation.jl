@@ -67,10 +67,11 @@ function problem_startsolutions(prob::TotalDegree{<:Input.MPPolyInputs}, homvar,
 		g = Systems.TotalDegreeSystem(prob.degrees, G_scaling_factors)
 		problem = Projective(g,
 						construct_system(f, system; variables=variables, homvars=homvars),
-						variable_groups, seed; kwargs...)
+						variable_groups, seed, f; kwargs...)
 	else
 		problem = Projective(Systems.TotalDegreeSystem(prob.degrees),
-			construct_system(F, system; variables=variables, homvars=homvars), variable_groups, seed; kwargs...)
+			construct_system(F, system; variables=variables, homvars=homvars),
+						variable_groups, seed, F; kwargs...)
 
 	end
 	startsolutions = totaldegree_solutions(prob.degrees)
@@ -123,7 +124,7 @@ function problem_startsolutions(prob::StartTarget{<:Input.MPPolyInputs, <:Input.
 		end
 		F̄ = construct_system(f, system; variables=vars, homvars=homvar)
 		Ḡ = construct_system(g, system; variables=vars, homvars=homvar)
-        Projective(Ḡ, F̄, vargroups, seed; kwargs...), prob.startsolutions
+        Projective(Ḡ, F̄, vargroups, seed, f; kwargs...), prob.startsolutions
     elseif F_ishom || G_ishom
         error("One of the input polynomials is homogenous and the other not!")
     else
@@ -142,7 +143,7 @@ function problem_startsolutions(prob::StartTarget{<:Input.MPPolyInputs, <:Input.
         F̄ = construct_system(f, system, variables=vars, homvars=homvar)
 		Ḡ = construct_system(g, system, variables=vars, homvars=homvar)
 		vargroups = VariableGroups(vars, h)
-        Projective(Ḡ, F̄, vargroups, seed; kwargs...), prob.startsolutions
+        Projective(Ḡ, F̄, vargroups, seed, f; kwargs...), prob.startsolutions
     end
 end
 
@@ -154,6 +155,6 @@ function problem_startsolutions(prob::ParameterSystem, homvar, seed; system=SPSy
     F, variables, variable_groups, homvars = Utilities.homogenize_if_necessary(prob.system, homvar=homvar, parameters=prob.parameters)
 	F̄ = construct_system(F, system; homvars=homvars, variables=variables, parameters=prob.parameters)
     H = ParameterHomotopy(F̄, p₁=prob.p₁, p₀=prob.p₀, γ₁=prob.γ₁, γ₀=prob.γ₀)
-
-    Projective(H, variable_groups, seed), prob.startsolutions
+	target_system = map(f -> MP.subs(f, prob.parameters => p₀), F)
+    Projective(H, target_system, variable_groups, seed), prob.startsolutions
 end

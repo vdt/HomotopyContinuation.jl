@@ -346,7 +346,7 @@ function compute_ẋ!(state, cache, options::Options)
     @inbounds for i in eachindex(cache.out)
         cache.out[i] = -cache.out[i]
     end
-    Utilities.adaptive_solve!(state.ẋ, cache.Jac, cache.out, cond=state.cond, tol=options.tol, safety_factor=0.0)
+    Utilities.adaptive_solve!(state.ẋ, cache.Jac, cache.out, cond=state.cond, tol=options.tol, safety_factor=1e3)
     nothing
 end
 

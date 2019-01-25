@@ -109,6 +109,7 @@ function runendgame(solver, tid, k, start_solutions, endgame_zone_results)
         result = Endgaming.runendgame(solver.endgame, r.x, t_endgame)
         # If the tracker failed we are probably to late with the endgame.
         if result.returncode == :tracker_failed
+            @show k
             # Rerun with something more away
             new_t = 0.3*(t₁ - t_endgame)
             pr = trackpath(solver::Solver, x₁, t₁, new_t)
