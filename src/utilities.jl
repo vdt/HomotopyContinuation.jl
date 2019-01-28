@@ -1,6 +1,7 @@
 include("utilities/unique_points.jl")
 include("utilities/linear_algebra.jl")
 include("utilities/polynomials.jl")
+include("utilities/tropical.jl")
 
 """
     nthroot(x, n)

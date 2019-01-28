@@ -155,6 +155,7 @@ function expand(C::Composition; parameters=nothing)
 	end
 	g
 end
+expand(F::MPPolys) = F
 
 """
 	validate(C::Composition; parameters=nothing)

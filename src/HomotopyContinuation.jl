@@ -42,6 +42,8 @@ module HomotopyContinuation
     include("solve.jl")
     include("monodromy.jl")
 
+    include("path_solving.jl")
+
     import LinearAlgebra: issuccess
     export issuccess
 end
