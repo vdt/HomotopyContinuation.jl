@@ -4,15 +4,15 @@ mutable struct PathSolverState
     segment::ComplexSegment
     s::Float64
     val::Vector{Float64}
-    approximate_valuation::Vector{NTuple{2,Float64}}
+    tropical_approximation_results::Vector{TropicalApproximationResult}
 end
 
 function PathSolverState(tracker, tropical_system, t₁::Number, t₀::Number)
     segment = ComplexSegment(t₁, t₀)
     s = 1.0
     val = zeros(length(tracker.state.x))
-    tropical_evaluation = approximate_evaluate(tropical_system, val)
-    PathSolverState(segment, s, val, tropical_evaluation)
+    tropical_approximation_results = approximate_evaluate(tropical_system, val)
+    PathSolverState(segment, s, val, tropical_approximation_results)
 end
 
 struct PathSolver{Tracker<:PathTracker}
@@ -49,7 +49,7 @@ function track(solver::PathSolver, x, t₁, t₀)
             update_tropical_system!(solver)
             println(t)
             println(solver.state.val)
-            display(solver.state.approximate_valuation)
+            display(solver.state.tropical_approximation_results)
         end
 
         if tracker.state.cond > 1e12
@@ -78,5 +78,5 @@ function update_valuation!(solver::PathSolver)
 end
 
 function update_tropical_system!(solver::PathSolver)
-    approximate_evaluate!(solver.state.approximate_valuation, solver.tropical_system, solver.state.val)
+    approximate_evaluate!(solver.state.tropical_approximation_results, solver.tropical_system, solver.state.val)
 end
