@@ -4,14 +4,14 @@ mutable struct PathSolverState
     segment::ComplexSegment
     s::Float64
     val::Vector{Float64}
-    tropical_approximation_results::Vector{TropicalApproximationResult}
+    tropical_approximation_results::Vector{TropicalEvaluationResult{Float64}}
 end
 
 function PathSolverState(tracker, tropical_system, t₁::Number, t₀::Number)
     segment = ComplexSegment(t₁, t₀)
     s = 1.0
     val = zeros(length(tracker.state.x))
-    tropical_approximation_results = approximate_evaluate(tropical_system, val)
+    tropical_approximation_results = evaluate(tropical_system, val)
     PathSolverState(segment, s, val, tropical_approximation_results)
 end
 
@@ -36,10 +36,11 @@ function pathsolver_startsolutions(args...; kwargs...)
 end
 
 function track(solver::PathSolver, x, t₁, t₀)
-    tracker = solver.tracker
+    state, tracker = solver.state, solver.tracker
 
     setup!(tracker, x, t₁, t₀)
 
+    val_nice = false
     while tracker.state.status == PathTrackerStatus.tracking
         step!(tracker)
         check_terminated!(tracker)
@@ -48,8 +49,29 @@ function track(solver::PathSolver, x, t₁, t₀)
             update_valuation!(solver)
             update_tropical_system!(solver)
             println(t)
-            println(solver.state.val)
-            display(solver.state.tropical_approximation_results)
+            println(state.val)
+            new_val_nice = is_approximate_zero(state.tropical_approximation_results; tol=1e-2)
+            if new_val_nice && !val_nice
+                for r in state.tropical_approximation_results
+                    printstyled(r, "\n", color=:green)
+                end
+            #     # break
+            # elseif val_nice && !new_val_nice
+            #     printstyled(state.tropical_approximation_results, "\n", color=:red)
+            end
+            val_nice = new_val_nice
+
+            if val_nice
+                w, m, Δ = best_w_m(solver.tropical_system,
+                        state.tropical_approximation_results,
+                        state.val,
+                        100)
+                display(w)
+                println("m: $m, Δ: $Δ")
+                if m > 0
+                    break
+                end
+            end
         end
 
         if tracker.state.cond > 1e12
@@ -78,5 +100,5 @@ function update_valuation!(solver::PathSolver)
 end
 
 function update_tropical_system!(solver::PathSolver)
-    approximate_evaluate!(solver.state.tropical_approximation_results, solver.tropical_system, solver.state.val)
+    evaluate!(solver.state.tropical_approximation_results, solver.tropical_system, solver.state.val)
 end

@@ -31,48 +31,53 @@ function tropicalize_straight_line(g, f)
 end
 
 """
-    ApproximateResult
+    TropicalEvaluationResult{T}
 
 Containing the smallest two evaluated values and its indices.
 
 ## Fields
-* `min₁::Float64`
-* `min₂::Float64`
+* `min₁::T`
+* `min₂::T`
 * `i₁::Int`
 * `i₂::Int`
 """
-struct TropicalApproximationResult
-    min₁::Float64
-    min₂::Float64
+struct TropicalEvaluationResult{T}
+    min₁::T
+    min₂::T
     i₁::Int
     i₂::Int
 end
-Base.show(io::IO, ::MIME"application/prs.juno.inline", x::TropicalApproximationResult) = x
-function Base.show(io::IO, x::TropicalApproximationResult)
+Base.show(io::IO, ::MIME"application/prs.juno.inline", x::TropicalEvaluationResult) = x
+function Base.show(io::IO, x::TropicalEvaluationResult)
     print(io, "(min₁: $(x.min₁), min₂: $(x.min₂), i₁: $(x.i₁), i₂: $(x.i₂))")
 end
 
-function approximate_evaluate(T::TropicalPolynomialSystem, w)
-    out = Vector{TropicalApproximationResult}(undef, length(T))
-    approximate_evaluate!(out, T, w)
+function evaluate(T::TropicalPolynomialSystem, w, m=nothing)
+    out = Vector{TropicalEvaluationResult}(undef, length(T))
+    evaluate!(out, T, w, m)
 end
-
-function approximate_evaluate!(out, T::TropicalPolynomialSystem, w)
+function evaluate!(out, T::TropicalPolynomialSystem, w, m=nothing)
     for (i, Tᵢ) in enumerate(T.polys)
-        out[i] = approximate_evaluate(Tᵢ, w)
+        out[i] = evaluate(Tᵢ, w, m)
     end
     out
 end
 
-function approximate_evaluate(T::TropicalPolynomial, w::AbstractVector{S}) where {S<:AbstractFloat}
-    m, n = size(T.exponents)
-    min₁ = min₂ = Inf
-    i₁ = i₂ = 1
-    for j in 1:n
-        vⱼ = S(T.weights[j])
-        for i in 1:m
-            vⱼ += T.exponents[i,j] * w[i]
-        end
+function evaluate(T::TropicalPolynomial, w::AbstractVector, m=nothing)
+    v₁ = evaluate_term(T, w, m, 1)
+    v₂ = evaluate_term(T, w, m, 2)
+
+    if v₁ < v₂
+        min₁, min₂ = v₁, v₂
+        i₁, i₂ = 1, 2
+    else
+        min₁, min₂ = v₂, v₁
+        i₁, i₂ = 2, 1
+    end
+
+    nterms = size(T.exponents, 2)
+    for j in 3:nterms
+        vⱼ = evaluate_term(T, w, m, j)
         if vⱼ < min₁
             min₁, min₂ = vⱼ, min₁
             i₁, i₂ = j, i₁
@@ -81,7 +86,64 @@ function approximate_evaluate(T::TropicalPolynomial, w::AbstractVector{S}) where
             i₂ = j
         end
     end
-    TropicalApproximationResult(min₁, min₂, i₁, i₂)
+    TropicalEvaluationResult(min₁, min₂, i₁, i₂)
+end
+
+"""
+    evaluate_term(T::TropicalPolynomial, w, j)
+Compute the j-th term in the minimum of `T(w)`.
+"""
+Base.@propagate_inbounds function evaluate_term(T::TropicalPolynomial, w, j)
+    vⱼ = T.weights[j] + T.exponents[1, j] * w[1]
+    for i in 2:size(T.exponents, 1)
+        vⱼ += T.exponents[i,j] * w[i]
+    end
+    vⱼ
+end
+
+"""
+    evaluate_term(T::TropicalPolynomial, w, m, j)
+
+Compute the j-th term in the minimum of `T(w//m)`. The result is scaled by `m`.
+"""
+Base.@propagate_inbounds function evaluate_term(T::TropicalPolynomial, w, m::Integer, j)
+    vⱼ = T.weights[j] * m + T.exponents[1, j] * w[1]
+    for i in 2:size(T.exponents, 1)
+        vⱼ += T.exponents[i,j] * w[i]
+    end
+    vⱼ
+end
+evaluate_term(T::TropicalPolynomial, w, ::Nothing, j) = evaluate_term(T, w, j)
+
+
+function is_zero(T::TropicalPolynomialSystem, w::AbstractVector, m=nothing)
+    for Tᵢ in T.polys
+        is_zero(Tᵢ, w, m) || return false
+    end
+    true
+end
+function is_zero(T::TropicalPolynomial, w::AbstractVector, m=nothing)
+    is_zero(evaluate(T, w, m))
+end
+is_zero(R::TropicalEvaluationResult) = R.min₁ == R.min₂
+
+function is_approximate_zero(T::TropicalPolynomialSystem, w::AbstractVector; tol=1e-1)
+    for Tᵢ in T.polys
+        is_approximate_zero(T, w, tol) || return false
+    end
+    true
+end
+function is_approximate_zero(Rs::Vector{<:TropicalEvaluationResult}; tol=1e-1)
+    for R in Rs
+        is_approximate_zero(R, tol) || return false
+    end
+    true
+end
+function is_approximate_zero(T::TropicalPolynomial, w::AbstractVector, tol)
+    is_approximate_zero(evaluate(T, w, m), tol)
+end
+function is_approximate_zero(R::TropicalEvaluationResult, tol)
+    R.min₂ - R.min₁ ≤ tol
 end
 
 function initial_system(T::TropicalPolynomialSystem, approximation_result)
@@ -102,4 +164,47 @@ function initial_system!(A, b, T::TropicalPolynomialSystem, approximation_result
         b[k] = p.weights[c₂] - p.weights[c₁]
     end
     nothing
+end
+
+function is_zero_of_system(A, b, w, m)
+    for i=1:size(A,1)
+        rᵢ = - m * b[i]
+        for j=1:size(A, 2)
+            rᵢ += A[i,j] * w[j]
+        end
+        rᵢ == 0 || return false
+    end
+    true
+end
+function best_w_m(T, approx_results, v, m_max)
+    A, b = initial_system(T, approx_results)
+    best_w = nothing
+    best_m = -1
+    best_m_diff = Inf
+    for m=1:m_max
+        # @show m
+        w = round.(Int, m .* v)
+        # @show evaluate(T, w .// m)
+        # Check 1 verify that w is a zero of A w = m b
+        # Check 2: verity that it is also a zero of trop(H)
+        system_zero = is_zero_of_system(A, b, w, m)
+        if system_zero
+            @show m
+            best_m = max(best_m, 0)
+        end
+        w_m_is_zero = system_zero && is_zero(T, w, m)
+
+        if w_m_is_zero
+            m_diff = 0.0
+            for i=1:length(v)
+                m_diff += abs(w[i] / m - v[i])
+            end
+            if m_diff < best_m_diff
+                best_w = w
+                best_m_diff = m_diff
+                best_m = m
+            end
+        end
+    end
+    best_w, best_m, best_m_diff
 end
