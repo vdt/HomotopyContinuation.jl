@@ -146,6 +146,24 @@ function is_approximate_zero(R::TropicalEvaluationResult, tol)
     R.min₂ - R.min₁ ≤ tol
 end
 
+function has_totaldegree_term(T::TropicalPolynomial, R::TropicalEvaluationResult)
+    if T.weights[R.i₁] == 1
+        @show R.i₁
+        return true
+    elseif T.weights[R.i₂] == 1
+        @show R.i₂
+        return true
+    end
+    return false
+end
+function has_totaldegree_term(T::TropicalPolynomialSystem, R::Vector{<:TropicalEvaluationResult})
+    for (Tᵢ, Rᵢ) in zip(T.polys, R)
+        has_totaldegree_term(Tᵢ, Rᵢ) && return true
+    end
+    false
+end
+
+
 function initial_system(T::TropicalPolynomialSystem, approximation_result)
     A = zeros(Int, length(T.polys), size(T.polys[1].exponents, 1))
     b = zeros(Int, length(T.polys))

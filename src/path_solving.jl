@@ -41,37 +41,60 @@ function track(solver::PathSolver, x, t₁, t₀)
     setup!(tracker, x, t₁, t₀)
 
     val_nice = false
+    at_infinity = false
     while tracker.state.status == PathTrackerStatus.tracking
         step!(tracker)
         check_terminated!(tracker)
         t = real(currt(solver.tracker))
         if !tracker.state.last_step_failed
             update_valuation!(solver)
-            update_tropical_system!(solver)
             println(t)
             println(state.val)
-            new_val_nice = is_approximate_zero(state.tropical_approximation_results; tol=1e-2)
-            if new_val_nice && !val_nice
+            state.val .= max.(state.val, 0.0)
+            println(state.val)
+
+            update_tropical_system!(solver)
+
+            new_val_nice = is_approximate_zero(state.tropical_approximation_results; tol=1e-1)
+
+
+
+            if new_val_nice
                 for r in state.tropical_approximation_results
                     printstyled(r, "\n", color=:green)
                 end
-            #     # break
-            # elseif val_nice && !new_val_nice
-            #     printstyled(state.tropical_approximation_results, "\n", color=:red)
-            end
-            val_nice = new_val_nice
 
-            if val_nice
-                w, m, Δ = best_w_m(solver.tropical_system,
-                        state.tropical_approximation_results,
-                        state.val,
-                        100)
-                display(w)
-                println("m: $m, Δ: $Δ")
-                if m > 0
-                    break
+                if has_totaldegree_term(solver.tropical_system, state.tropical_approximation_results)
+                    printstyled("AT_INFINITY\n", color=:red)
+                    at_infinity = true
+                end
+            else
+                for r in state.tropical_approximation_results
+                    printstyled(r, "\n", color=:yellow)
                 end
             end
+            #
+            # if new_val_nice
+            #     if state.val[end] > 1/20
+            #         at_infinity = true
+            #         # break
+            #     end
+            # end
+            #
+
+            val_nice = new_val_nice
+            #
+            # if val_nice
+            #     w, m, Δ = best_w_m(solver.tropical_system,
+            #             state.tropical_approximation_results,
+            #             state.val,
+            #             100)
+            #     display(w)
+            #     println("m: $m, Δ: $Δ")
+            #     if m > 0
+            #         break
+            #     end
+            # end
         end
 
         if tracker.state.cond > 1e12
@@ -81,7 +104,15 @@ function track(solver::PathSolver, x, t₁, t₀)
     if tracker.state.status == PathTrackerStatus.success
         refine!(tracker)
     end
-    PathTrackerResult(tracker)
+
+    result = PathTrackerResult(tracker)
+    if at_infinity
+        return result, :at_infinity
+    elseif tracker.state.status == PathTrackerStatus.success
+        return result, :finite
+    else
+        return result, :failed
+    end
 end
 
 function valuation!(val, z, ż, t)

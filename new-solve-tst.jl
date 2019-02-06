@@ -5,10 +5,50 @@ const MP = MultivariatePolynomials
 
 f = equations(cyclic(7))
 
-
 P, starts = pathsolver_startsolutions(f, seed=130793)
 
-track(P, starts[2], 1.0, 1e-12)
+R = map(starts) do s
+    track(P, s, 1.0, 0.0)
+end
+
+count(r -> r[2] == :failed, R)
+
+# track(P, starts[9], 1.0, 1e-3)
+track(P, starts[222], 1.0, 1e-12)
+using AbstractAlgebra
+
+A, b = HC.initial_system(P.tropical_system, P.state.tropical_approximation_results)
+v = [0.0, 0.997296, 0.997062, 0.00356295, 0.0, 0.994626, 0.0, 0.138842]
+v = [0.0359355, 0.0164393, 0.815228, -0.0687553, -0.0384354, 0.926298, 0.829523, 0.357542]
+v2 = rationalize.(v, tol=1/1000)
+
+orthogonal_projectio- 0.0192
+
+aavec(v) = matrix(ZZ, reshape(v, length(v), 1))
+A1 = matrix(ZZ, A[2:end,:])
+b1 = matrix(ZZ, reshape(b[2:end], length(b)-1, 1))
+S, U, V = snf_with_trafo(A1)
+c = U * b1
+S_inv, denom = inv(S[1:6, 1:6])
+
+x1 = V * aavec([[div((S_inv * c)[i, 1], denom)  for i=1:size(c, 1)]; 0; 0])
+
+
+H, U = hnf_cohen_with_trafo(A1)
+
+bH
+hnf_with_trafo(A1)
+
+
+
+
+rank(A[2:end,:])
+
+res = solve(f, seed=130793)
+
+findall(map(r -> r.returncode == :at_infinity, res) .!= map(r -> r[2] == :at_infinity, R))
+
+track(P, starts[24], 1.0, 1e-12)
 track(P, starts[12], 1.0, 0.0001)
 
 track(P, starts[111], 1.0, 1e-12)
@@ -23,7 +63,9 @@ HC.best_w_m(P.tropical_system,
 
 P.tropical_system
 
+v = [0.48444, 0.00460564, 0.966807, -0.00667572, 0.731983, 0.116612, 0.369713, 0.381069]
 
+v .* 64
 
 
 rank(A)
@@ -57,14 +99,29 @@ ldiv!(out, QR, b)
 A \ (7 .* b)
 v = [5.29693e-5, 6.86643e-5, 0.99931, -0.000273215, -0.000240976, 0.999717, 0.999532, 0.428303]
 
+v2 = [0.480437, 0.0147987, 0.840107, -0.0715342, 0.644538, 0.0472122, 0.212632, 0.310643]
+v3 = [0.464675, 0.00947736, 0.926048, -0.0228519, 0.701272, 0.098716, 0.348311, 0.360828]
 nullspace(A)
+
+orthogonal_projection(v2, A, b)
+
+64 .* orthogonal_projection(v3, A, b)
+
+A
+
 
 HC.evaluate(P.tropical_system, P.state.val)
 
 function orthogonal_projection(v, A, b, m)
-    p = A \ (m .* b)
+    p = qr(A, Val(true)) \ (m .* b)
     p + orthogonal_projection(m .* v - p, A)
 end
+
+function orthogonal_projection(v, A, b)
+    p = qr(A, Val(true)) \ b
+    p + orthogonal_projection(v - p, A)
+end
+
 
 function orthogonal_projection(v, A)
     N = nullspace(A)
