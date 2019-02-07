@@ -1,3 +1,5 @@
+using LinearAlgebra
+
 struct TropicalPolynomial{T}
     exponents::Matrix{Int32}
     weights::Vector{T}
@@ -52,6 +54,17 @@ function Base.show(io::IO, x::TropicalEvaluationResult)
     print(io, "(min₁: $(x.min₁), min₂: $(x.min₂), i₁: $(x.i₁), i₂: $(x.i₂))")
 end
 
+function sortevaluate(T::TropicalPolynomialSystem, w, m=nothing)
+    map(T.polys) do Tᵢ
+
+        vals = map(1:size(Tᵢ.exponents, 2)) do i
+            evaluate_term(Tᵢ, w, m, i)
+        end
+        p = sortperm(vals)
+        vals[p], p
+    end
+end
+
 function evaluate(T::TropicalPolynomialSystem, w, m=nothing)
     out = Vector{TropicalEvaluationResult}(undef, length(T))
     evaluate!(out, T, w, m)
@@ -74,7 +87,6 @@ function evaluate(T::TropicalPolynomial, w::AbstractVector, m=nothing)
         min₁, min₂ = v₂, v₁
         i₁, i₂ = 2, 1
     end
-
     nterms = size(T.exponents, 2)
     for j in 3:nterms
         vⱼ = evaluate_term(T, w, m, j)
@@ -148,10 +160,8 @@ end
 
 function has_totaldegree_term(T::TropicalPolynomial, R::TropicalEvaluationResult)
     if T.weights[R.i₁] == 1
-        @show R.i₁
         return true
     elseif T.weights[R.i₂] == 1
-        @show R.i₂
         return true
     end
     return false
@@ -178,6 +188,27 @@ function initial_system!(A, b, T::TropicalPolynomialSystem, approximation_result
         c₂ = approximation_result[k].i₂
         for i in 1:size(A, 2)
             A[k, i] = p.exponents[i, c₁] - p.exponents[i, c₂]
+        end
+        b[k] = p.weights[c₂] - p.weights[c₁]
+    end
+    nothing
+end
+
+function affine_initial_system(T::TropicalPolynomialSystem, approximation_result)
+    A = zeros(Int, length(T.polys), size(T.polys[1].exponents, 1) - 1)
+    b = zeros(Int, length(T.polys))
+    affine_initial_system!(A, b, T, approximation_result)
+    A, b
+end
+function affine_initial_system!(A, b, T::TropicalPolynomialSystem, approximation_result)
+    j = 1
+    for k = 1:length(T.polys)
+        p = T.polys[k]
+        c₁ = approximation_result[k].i₁
+        c₂ = approximation_result[k].i₂
+        h = p.exponents[end, c₁] - p.exponents[end, c₂]
+        for i in 1:size(A, 2)
+            A[k, i] = p.exponents[i, c₁] - p.exponents[i, c₂] + h
         end
         b[k] = p.weights[c₂] - p.weights[c₁]
     end
@@ -225,4 +256,27 @@ function best_w_m(T, approx_results, v, m_max)
         end
     end
     best_w, best_m, best_m_diff
+end
+
+
+function correct_val(T, approx_results, v)
+    A, b = initial_system(T, approx_results)
+    v′ = orthogonal_projection(v, A, b)
+    v′ .-= minimum(v′)
+end
+
+function orthogonal_projection(v, A, b, m)
+    p = qr(A, Val(true)) \ (m .* b)
+    p + orthogonal_projection(m .* v - p, A)
+end
+
+function orthogonal_projection(v, A, b)
+    p = qr(A, Val(true)) \ b
+    p + orthogonal_projection(v - p, A)
+end
+
+function orthogonal_projection(v, A)
+    N = nullspace(A)
+    x = (N' * N) \ (N' * v)
+    N * x
 end

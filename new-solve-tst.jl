@@ -8,15 +8,16 @@ f = equations(cyclic(7))
 P, starts = pathsolver_startsolutions(f, seed=130793)
 
 R = map(starts) do s
-    track(P, s, 1.0, 0.0)
+    track(P, s, 1.0, 0.0, debug=false)
 end
 
 count(r -> r[2] == :failed, R)
 
-# track(P, starts[9], 1.0, 1e-3)
-track(P, starts[222], 1.0, 1e-12)
+track(P, starts[9], 1.0, 1e-3)
+track(P, starts[57], 1.0, 0.0)
 using AbstractAlgebra
 
+C, d = HC.affine_initial_system(P.tropical_system, P.state.tropical_approximation_results)
 A, b = HC.initial_system(P.tropical_system, P.state.tropical_approximation_results)
 v = [0.0, 0.997296, 0.997062, 0.00356295, 0.0, 0.994626, 0.0, 0.138842]
 v = [0.0359355, 0.0164393, 0.815228, -0.0687553, -0.0384354, 0.926298, 0.829523, 0.357542]
@@ -112,22 +113,6 @@ A
 
 HC.evaluate(P.tropical_system, P.state.val)
 
-function orthogonal_projection(v, A, b, m)
-    p = qr(A, Val(true)) \ (m .* b)
-    p + orthogonal_projection(m .* v - p, A)
-end
-
-function orthogonal_projection(v, A, b)
-    p = qr(A, Val(true)) \ b
-    p + orthogonal_projection(v - p, A)
-end
-
-
-function orthogonal_projection(v, A)
-    N = nullspace(A)
-    x = (N' * N) \ (N' * v)
-    N * x
-end
 
 orthogonal_projection(v, A, b, 7)
 

@@ -35,7 +35,7 @@ function pathsolver_startsolutions(args...; kwargs...)
     solver, collect(startsolutions)
 end
 
-function track(solver::PathSolver, x, t₁, t₀)
+function track(solver::PathSolver, x, t₁, t₀; debug=true)
     state, tracker = solver.state, solver.tracker
 
     setup!(tracker, x, t₁, t₀)
@@ -48,28 +48,34 @@ function track(solver::PathSolver, x, t₁, t₀)
         t = real(currt(solver.tracker))
         if !tracker.state.last_step_failed
             update_valuation!(solver)
-            println(t)
-            println(state.val)
-            state.val .= max.(state.val, 0.0)
-            println(state.val)
+            debug && println(t)
+            debug && println(state.val)
+            # state.val .= max.(state.val, 0.0)
+            # println(state.val)
 
             update_tropical_system!(solver)
 
             new_val_nice = is_approximate_zero(state.tropical_approximation_results; tol=1e-1)
 
-
-
             if new_val_nice
-                for r in state.tropical_approximation_results
+                debug && for r in state.tropical_approximation_results
                     printstyled(r, "\n", color=:green)
                 end
 
                 if has_totaldegree_term(solver.tropical_system, state.tropical_approximation_results)
-                    printstyled("AT_INFINITY\n", color=:red)
-                    at_infinity = true
+                    debug && printstyled("AT_INFINITY\n", color=:red)
+                    v = correct_val(solver.tropical_system, state.tropical_approximation_results, state.val)
+                    debug && @show v
+                    debug && for r in evaluate(solver.tropical_system, v)
+                        printstyled(r, "\n", color=:blue)
+                    end
+                    if is_approximate_zero(evaluate(solver.tropical_system, v); tol=1e-1)
+                        at_infinity = true
+                        break
+                    end
                 end
             else
-                for r in state.tropical_approximation_results
+                debug && for r in state.tropical_approximation_results
                     printstyled(r, "\n", color=:yellow)
                 end
             end
@@ -106,10 +112,11 @@ function track(solver::PathSolver, x, t₁, t₀)
     end
 
     result = PathTrackerResult(tracker)
-    if at_infinity
-        return result, :at_infinity
-    elseif tracker.state.status == PathTrackerStatus.success
+
+    if tracker.state.status == PathTrackerStatus.success
         return result, :finite
+    elseif at_infinity
+        return result, :at_infinity
     else
         return result, :failed
     end
