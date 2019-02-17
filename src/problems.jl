@@ -120,7 +120,7 @@ function problem_startsolutions(prob::TotalDegreeInput{<:MPPolyInputs}, homvar_i
 
 	check_square_homogenous_system(F, variable_groups)
 
-	degrees = maxdegrees(F)
+	degrees = multidegrees(F, variable_groups, variables)
 	# Scale systems
 	if system_scaling
 		G = homogenous_totaldegree_polysystem(degrees, variables, variable_groups)
